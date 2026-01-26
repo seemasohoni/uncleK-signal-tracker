@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UncleK Terminal - Jan 26</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #05070a;
+            --card-bg: rgba(16, 20, 28, 0.8);
+            --accent-primary: #60a5fa;
+            --accent-secondary: #34d399;
+            --alert-color: #fbbf24;
+            --hpt-color: #fb923c;
+            --text-main: #f1f5f9;
+            --text-muted: #64748b;
+            --border-color: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 90% 90%, rgba(249, 115, 22, 0.08) 0%, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 3rem 1rem;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+        }
+        
+        header {
+            margin-bottom: 4rem;
+            text-align: center;
+        }
+        
+        .terminal-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px 16px;
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-secondary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-secondary);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        
+        .date-display {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        
+        .thread-group {
+            margin-bottom: 3.5rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .thread-header {
+            padding: 1rem 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .thread-label {
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent-primary);
+        }
+        
+        .post {
+            padding: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            transition: background 0.3s ease;
+        }
+        
+        .post:last-child { border-bottom: none; }
+        
+        .post:hover { background: rgba(255, 255, 255, 0.01); }
+        
+        .post-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.25rem;
+        }
+        
+        .author-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .author-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .author-name.unclek { color: #fff; }
+        
+        .time-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.3);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .post-content {
+            font-size: 1.15rem;
+            color: var(--text-main);
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-weight: 300;
+        }
+        
+        .hpt-alert-card {
+            background: linear-gradient(to right, rgba(249, 115, 22, 0.1), transparent);
+            border-left: 4px solid var(--hpt-color);
+        }
+        
+        .hpt-badge {
+            background: var(--hpt-color);
+            color: #000;
+            font-weight: 800;
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .no-posts {
+            text-align: center;
+            padding: 6rem;
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 1px dashed var(--border-color);
+            color: var(--text-muted);
+        }
+        
+        footer {
+            margin-top: 5rem;
+            text-align: center;
+            padding-bottom: 4rem;
+        }
+        
+        .hpt-highlight {
+            color: var(--hpt-color);
+            font-weight: 800;
+            background: rgba(249, 115, 22, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .config-info {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="terminal-header">
+                <div class="status-dot"></div>
+                <span style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-muted);">EWT LIVE TRACKER</span>
+            </div>
+            <h1>UncleK Signals</h1>
+            <div class="date-display">Monday &bull; January 26, 2026</div>
+        </header>
+        
+        <main>
+            <div class="thread-group">
+                <div class="post unclek">
+                    <div class="post-meta">
+                        <div class="author-info">
+                            <span class="author-name unclek">UncleK </span>
+                        </div>
+                        <span class="time-badge">12:08:49</span>
+                    </div>
+                    <div class="post-content"><strong>Review of the day</strong>. The SPX pattern for the day was the Morning High and Afternoon Low. However standard rules apply and a continued trend higher is more probable with price remaining above yesterday's HOD. All HPTs printed. 
+Tuesday - 
+
+<strong>SPX Pattern is Morning High, Afternoon Low.</strong> 
+<strong>Technical Trend</strong>: 
+SPY - Bullish Signal - Day 3 Trending, 
+QQQ - Bullish Signal - Day 3 Trending, 
+IWM - Bearish Signal - Day 2 Trending.</div>
+                </div>
+            </div>
+            <div class="thread-group">
+                <div class="post unclek hpt-alert-card">
+                    <div class="post-meta">
+                        <div class="author-info">
+                            <span class="author-name unclek">UncleK <span class="hpt-badge">HPT TARGET</span></span>
+                        </div>
+                        <span class="time-badge">10:26:03</span>
+                    </div>
+                    <div class="post-content"><strong>SPX Afternoon Trend</strong> - The Afternoon trend is Bullish. We have <span class='hpt-highlight'>HPT SPX 6960.55</span> (Again Printed immediately) All HPTs have printed for today. The SPX pattern for the day is the Morning High and Afternoon Low. However standard rules apply and a continued trend higher is more probable with price remaining above yesterday's HOD. 
+<strong>Technical Trend</strong>: 
+SPY - Bullish Signal - Day 3 Trending, 
+QQQ - Bullish Signal - Day 3 Trending, 
+IWM - Bearish Signal - Day 2 Trending.</div>
+                </div>
+            </div>
+            <div class="thread-group">
+                <div class="post unclek">
+                    <div class="post-meta">
+                        <div class="author-info">
+                            <span class="author-name unclek">UncleK </span>
+                        </div>
+                        <span class="time-badge">07:20:37</span>
+                    </div>
+                    <div class="post-content"><strong>Technical Trend</strong>. 
+SPY - Bullish Signal - Day 3 Trending, 
+QQQ - Bullish Signal - Day 3 Trending, 
+IWM - Bearish Signal - Day 2 Trending.</div>
+                </div>
+            </div>
+            <div class="thread-group">
+                <div class="post unclek">
+                    <div class="post-meta">
+                        <div class="author-info">
+                            <span class="author-name unclek">UncleK </span>
+                        </div>
+                        <span class="time-badge">06:17:15</span>
+                    </div>
+                    <div class="post-content">The SPX pattern for the day is the Morning High and Afternoon Low. However standard rules apply and a continued trend higher is more probable with price remaining above yesterday's HOD. All HPTs printed. 
+<strong>Technical Trend</strong>: 
+SPY - Bullish Signal - Day 2 Trending, 
+QQQ - Bullish Signal - Day 2 Trending, 
+IWM - Bearish Signal - Day 1 Trending.</div>
+                </div>
+            </div>
+            <div class="thread-group">
+                <div class="post unclek">
+                    <div class="post-meta">
+                        <div class="author-info">
+                            <span class="author-name unclek">UncleK </span>
+                        </div>
+                        <span class="time-badge">03:46:33</span>
+                    </div>
+                    <div class="post-content">Good Monday 
+Morning - 
+
+<strong>SPX Pattern is Morning High, Afternoon Low.</strong> 
+<strong>Technical Trend</strong> (Friday close): 
+SPY - Bullish Signal - Day 2 Trending, 
+QQQ - Bullish Signal - Day 2 Trending, 
+IWM - Bearish Signal - Day 1 Trending.</div>
+                </div>
+            </div>
+        </main>
+        <footer>
+            <div class="config-info">Auto-polling active: 6:00 AM &mdash; 1:15 PM PST</div>
+        </footer>
+    </div>
+</body>
+</html>

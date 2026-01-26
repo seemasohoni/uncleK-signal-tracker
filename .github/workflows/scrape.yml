@@ -1,0 +1,40 @@
+name: UncleK Signal Scraper
+
+on:
+  schedule:
+    - cron: '*/15 13-21 * * 1-5' # Runs every 15 mins from 13:00 to 21:59 UTC (5 AM - 2 PM PST), Mon-Fri
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install chromium --with-deps
+
+      - name: Run Scraper
+        env:
+          EWT_EMAIL: ${{ secrets.EWT_EMAIL }}
+          EWT_PASSWORD: ${{ secrets.EWT_PASSWORD }}
+        run: python login_handler.py --run-once
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add unclek_summary.html response.html
+          git commit -m "Auto-update signals: $(date)" || echo "No changes to commit"
+          git push

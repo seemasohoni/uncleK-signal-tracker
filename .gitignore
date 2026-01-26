@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+scraper.log
+test_*.py
+run_once.py
+populate_today.py
+*.webp
+.DS_Store
+.system_generated/
