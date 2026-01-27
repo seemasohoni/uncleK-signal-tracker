@@ -86,7 +86,7 @@ def generate_summary_page(threads, target_date):
                 radial-gradient(circle at 90% 90%, rgba(249, 115, 22, 0.08) 0%, transparent 50%);
             color: var(--text-main);
             min-height: 100vh;
-            padding: 3rem 1rem;
+            padding: 2rem 1rem;
             line-height: 1.5;
         }}
         
@@ -96,7 +96,7 @@ def generate_summary_page(threads, target_date):
         }}
         
         header {{
-            margin-bottom: 4rem;
+            margin-bottom: 2rem;
             text-align: center;
         }}
         
@@ -108,7 +108,7 @@ def generate_summary_page(threads, target_date):
             padding: 8px 16px;
             border-radius: 999px;
             border: 1px solid var(--border-color);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }}
         
         .status-dot {{
@@ -127,7 +127,7 @@ def generate_summary_page(threads, target_date):
         }}
         
         h1 {{
-            font-size: 3rem;
+            font-size: 2.5rem;
             font-weight: 800;
             letter-spacing: -0.02em;
             background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
@@ -141,6 +141,49 @@ def generate_summary_page(threads, target_date):
             color: var(--text-muted);
             font-weight: 400;
         }}
+
+        /* Live Mode Controls */
+        .live-mode-banner {{
+            background: rgba(96, 165, 250, 0.1);
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(8px);
+        }}
+
+        .live-status {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }}
+
+        #live-toggle-btn {{
+            background: var(--accent-primary);
+            color: #000;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+
+        #live-toggle-btn:hover {{
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }}
+
+        #live-toggle-btn.active {{
+            background: #ef4444; /* Red for Stop */
+            color: #fff;
+        }}
         
         .thread-group {{
             margin-bottom: 3.5rem;
@@ -150,23 +193,6 @@ def generate_summary_page(threads, target_date):
             border: 1px solid var(--glass-border);
             overflow: hidden;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        }}
-        
-        .thread-header {{
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.03);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }}
-        
-        .thread-label {{
-            font-weight: 700;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--accent-primary);
         }}
         
         .post {{
@@ -278,12 +304,19 @@ def generate_summary_page(threads, target_date):
             <h1>UncleK Signals</h1>
             <div class="date-display">{day_str} &bull; {full_date_str}</div>
         </header>
+
+        <div class="live-mode-banner">
+            <div class="live-status">
+                <span id="live-indicator-dot" style="width: 10px; height: 10px; background: #475569; border-radius: 50%;"></span>
+                <span id="live-status-text">LIVE MODE: OFF</span>
+            </div>
+            <button id="live-toggle-btn">START LIVE MODE</button>
+        </div>
         
-        <main>
+        <main id="signals-main">
 """
     if threads:
         for thread_id, posts in threads.items():
-            # Filter to only show UncleK posts as requested
             unclek_posts = [p for p in posts if p['author'] == "UncleK"]
             if not unclek_posts:
                 continue
@@ -298,11 +331,10 @@ def generate_summary_page(threads, target_date):
                         css_class += " hpt-alert-card"
                 
                 hpt_tag = '<span class="hpt-badge">HPT TARGET</span>' if is_hpt else ''
-                
-                
                 formatted_content = format_post_content(p['content'])
+                timestamp = p.get('timestamp', '0')
                 
-                html_content += f"""                <div class="post {css_class}">
+                html_content += f"""                <div class="post {css_class}" data-timestamp="{timestamp}" data-hpt="{'true' if is_hpt else 'false'}">
                     <div class="post-meta">
                         <div class="author-info">
                             <span class="author-name {'unclek' if p['author'] == 'UncleK' else ''}">{p['author']} {hpt_tag}</span>
@@ -317,9 +349,130 @@ def generate_summary_page(threads, target_date):
 
     html_content += """        </main>
         <footer>
-            <div class="config-info">Auto-polling active: 6:00 AM &mdash; 1:15 PM PST</div>
+            <div class="config-info">Auto-polling active: 5:00 AM &mdash; 1:30 PM PST</div>
+            <div class="config-info" id="last-refresh-time">Last updated: Just now</div>
         </footer>
     </div>
+
+    <script>
+    let isLive = false;
+    let refreshInterval = null;
+    let lastSeenPostTimestamp = 0;
+    const btn = document.getElementById('live-toggle-btn');
+    const statusText = document.getElementById('live-status-text');
+    const dot = document.getElementById('live-indicator-dot');
+    const lastRefreshEl = document.getElementById('last-refresh-time');
+
+    // Synthesis for Cat Call (Wolf Whistle) Sound
+    function playAlert() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Part 1: Slide Up
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(800, ctx.currentTime);
+            osc1.frequency.exponentialRampToValueAtTime(2500, ctx.currentTime + 0.15);
+            
+            gain1.gain.setValueAtTime(0, ctx.currentTime);
+            gain1.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start();
+            osc1.stop(ctx.currentTime + 0.2);
+
+            // Part 2: Slide Down (Cat Call finish)
+            setTimeout(() => {
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(2200, ctx.currentTime);
+                osc2.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.3);
+                
+                gain2.gain.setValueAtTime(0, ctx.currentTime);
+                gain2.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
+                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start();
+                osc2.stop(ctx.currentTime + 0.4);
+            }, 250);
+            
+            console.log("Cat Call played!");
+        } catch(e) { console.error("Audio failed", e); }
+    }
+
+    function updateLastSeen() {
+        const posts = document.querySelectorAll('.post');
+        posts.forEach(p => {
+            const ts = parseInt(p.getAttribute('data-timestamp'));
+            if (ts > lastSeenPostTimestamp) lastSeenPostTimestamp = ts;
+        });
+    }
+
+    async function checkForUpdates() {
+        console.log("Checking for updates...");
+        try {
+            const response = await fetch(window.location.href, { cache: 'no-store' });
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            
+            const newPosts = doc.querySelectorAll('.post');
+            let foundNewHPT = false;
+            let addedCount = 0;
+
+            newPosts.forEach(p => {
+                const ts = parseInt(p.getAttribute('data-timestamp'));
+                if (ts > lastSeenPostTimestamp) {
+                    addedCount++;
+                    if (p.getAttribute('data-hpt') === 'true') foundNewHPT = true;
+                }
+            });
+
+            if (addedCount > 0) {
+                console.log(`Detected ${addedCount} new posts! Refreshing UI...`);
+                if (foundNewHPT) playAlert();
+                // We reload the whole page to get the new server-generated HTML structure easily
+                window.location.reload();
+            } else {
+                lastRefreshEl.innerText = "Last checked: " + new Date().toLocaleTimeString();
+            }
+        } catch (e) {
+            console.error("Refresh failed", e);
+        }
+    }
+
+    btn.addEventListener('click', () => {
+        isLive = !isLive;
+        if (isLive) {
+            btn.innerText = "STOP LIVE MODE";
+            btn.classList.add('active');
+            statusText.innerText = "LIVE MODE: ACTIVE";
+            dot.style.background = "#22c55e";
+            dot.style.boxShadow = "0 0 10px #22c55e";
+            updateLastSeen();
+            // Check every 2 minutes
+            refreshInterval = setInterval(checkForUpdates, 120000);
+            // Play a small sound just for confirmation
+            playAlert();
+        } else {
+            btn.innerText = "START LIVE MODE";
+            btn.classList.remove('active');
+            statusText.innerText = "LIVE MODE: OFF";
+            dot.style.background = "#475569";
+            dot.style.boxShadow = "none";
+            clearInterval(refreshInterval);
+        }
+    });
+
+    // Initialize last seen
+    updateLastSeen();
+    </script>
 </body>
 </html>"""
     

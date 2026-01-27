@@ -22,6 +22,20 @@ To host this on your own GitHub account:
 ## View results
 The results are saved to `unclek_summary.html`. You can enable **GitHub Pages** in your repository settings to host this file as a live website.
 
+## Live Mode & Sound Alerts
+To hear the **loud Cat Call (wolf whistle)** alert for new HPT signals (especially when hosted on GitHub):
+1. Open your live dashboard link.
+2. Click the **"START LIVE MODE"** button in the top banner.
+3. Keep the tab open.
+   - The page will automatically check for updates every 2 minutes.
+   - When a new "HPT Target" is detected, it will play a loud Cat Call sound.
+
+---
+
+### Troubleshooting Sound
+- **No Sound?** Browsers require user interaction (like clicking "Start Live Mode") before they allow sound to play.
+- **Not Refreshing?** Ensure you clicked the button; the indicator should be green and pulsing.
+
 ## Troubleshooting GIT Push
 If you see `remote: Repository not found`, it means you need to create the repository on the web second first:
 1. Go to [github.com/new](https://github.com/new)
