@@ -552,17 +552,14 @@ def scrape_uncle_k(email, password, last_known_count=0):
         total_posts_processed = 0
         new_hpt_found = False
 
-        # Phase 1: Identify threads
+        # Phase 1: Identify all UncleK posts from today
         for entry in all_entries:
             date_el = entry.query_selector(".atc-datePart")
             if not date_el or site_today not in date_el.inner_text():
                 continue
             
             author_el = entry.query_selector(".atc-username")
-            parent_id = entry.get_attribute("parentid")
-            is_reply = entry.get_attribute("isreply") == "true" or parent_id not in [None, "0", ""]
-            
-            if author_el and "UncleK" in author_el.inner_text() and not is_reply:
+            if author_el and "UncleK" in author_el.inner_text():
                 thread_id = entry.get_attribute("threadid")
                 if thread_id:
                     uncle_k_thread_ids.add(thread_id)
@@ -572,33 +569,40 @@ def scrape_uncle_k(email, password, last_known_count=0):
         for entry in all_entries:
             thread_id = entry.get_attribute("threadid")
             if thread_id in uncle_k_thread_ids:
+                # We show all posts in a thread involving UncleK from today,
+                # but we'll prioritize UncleK's specific posts.
                 author_el = entry.query_selector(".atc-username")
                 time_el = entry.query_selector(".atc-timePart")
                 content_el = entry.query_selector(".atc-entrytext")
                 entry_time_el = entry.query_selector(".atc-entrytime")
                 
                 if author_el and content_el:
-                    current_post_count += 1
-                    raw_ts = entry_time_el.get_attribute("timestamp") if entry_time_el else "0"
+                    # Filter for UncleK posts or posts in the thread from today
+                    date_el = entry.query_selector(".atc-datePart")
+                    is_today = date_el and site_today in date_el.inner_text()
                     
-                    # Convert raw Unix timestamp to PST time string
-                    ts_int = int(raw_ts)
-                    pst_time_str = ""
-                    if ts_int > 0:
-                        pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
-                        pst_time_str = pst_dt.strftime("%I:%M:%S %p")
-                    else:
-                        pst_time_str = time_el.inner_text().strip() if time_el else ""
+                    if is_today:
+                        current_post_count += 1
+                        raw_ts = entry_time_el.get_attribute("timestamp") if entry_time_el else "0"
+                        
+                        # Convert raw Unix timestamp to PST time string
+                        ts_int = int(raw_ts)
+                        pst_time_str = ""
+                        if ts_int > 0:
+                            pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
+                            pst_time_str = pst_dt.strftime("%I:%M:%S %p")
+                        else:
+                            pst_time_str = time_el.inner_text().strip() if time_el else ""
 
-                    post_data = {
-                        "author": author_el.inner_text().strip(),
-                        "time": pst_time_str,
-                        "content": content_el.inner_text().strip(),
-                        "timestamp": raw_ts
-                    }
-                    if thread_id not in threads:
-                        threads[thread_id] = []
-                    threads[thread_id].append(post_data)
+                        post_data = {
+                            "author": author_el.inner_text().strip(),
+                            "time": pst_time_str,
+                            "content": content_el.inner_text().strip(),
+                            "timestamp": raw_ts
+                        }
+                        if thread_id not in threads:
+                            threads[thread_id] = []
+                        threads[thread_id].append(post_data)
 
         # Check for new posts
         has_new = current_post_count > last_known_count
@@ -638,9 +642,9 @@ if __name__ == "__main__":
     if args.run_once:
         print(f"Running in single-scrape mode...", flush=True)
         threads, has_new, new_count, new_hpt_alert = scrape_uncle_k(email, password, 0)
-        if threads:
-            generate_summary_page(threads, get_pst_now().strftime("%b %d"))
-            print("Summary page updated successfully.", flush=True)
+        # Always generate summary page so date is correct even if no posts
+        generate_summary_page(threads, get_pst_now().strftime("%b %d"))
+        print("Summary page updated successfully.", flush=True)
         sys.exit(0)
 
     last_count = 0
