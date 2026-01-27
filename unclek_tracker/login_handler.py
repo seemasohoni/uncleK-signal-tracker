@@ -3,7 +3,12 @@ import re
 from playwright.sync_api import sync_playwright
 import os
 import sys
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
+
+def get_pst_now():
+    """Returns the current time in PST (UTC-8)."""
+    # GitHub Actions runners are in UTC. PST is UTC-8.
+    return datetime.now() - timedelta(hours=8)
 
 def play_alarm():
     """Plays a system sound on macOS."""
@@ -49,7 +54,7 @@ def generate_summary_page(threads, target_date):
     """
     Generates a premium HTML summary page with HPT highlighting.
     """
-    now = datetime.now()
+    now = get_pst_now()
     day_str = now.strftime("%A")
     full_date_str = now.strftime("%B %d, %Y")
     
@@ -481,7 +486,7 @@ def generate_summary_page(threads, target_date):
 
 def is_within_time_window():
     """Checks if current PST time is between 5:00 AM and 1:30 PM, Mon-Fri, excluding holidays."""
-    now = datetime.now()
+    now = get_pst_now()
     # Check if Mon-Fri (0-4)
     if now.weekday() > 4:
         return False
@@ -504,7 +509,7 @@ def scrape_uncle_k(email, password, last_known_count=0):
     """
     Scrapes the signals and returns threads, and whether there are new posts.
     """
-    now = datetime.now()
+    now = get_pst_now()
     site_today = now.strftime("%b %d")
     
     with sync_playwright() as p:
@@ -615,7 +620,7 @@ if __name__ == "__main__":
         print(f"Running in single-scrape mode...", flush=True)
         threads, has_new, new_count, new_hpt_alert = scrape_uncle_k(email, password, 0)
         if threads:
-            generate_summary_page(threads, datetime.now().strftime("%b %d"))
+            generate_summary_page(threads, get_pst_now().strftime("%b %d"))
             print("Summary page updated successfully.", flush=True)
         sys.exit(0)
 
@@ -625,14 +630,15 @@ if __name__ == "__main__":
 
     while True:
         if is_within_time_window():
-            now_str = datetime.now().strftime("%H:%M:%S")
-            print(f"[{now_str}] Polling for updates...", flush=True)
+            now_pst = get_pst_now()
+            now_str = now_pst.strftime("%H:%M:%S")
+            print(f"[{now_str}] Polling for updates (PST)...", flush=True)
             
             threads, has_new, new_count, new_hpt_alert = scrape_uncle_k(email, password, last_count)
             
             if threads and (has_new or first_run):
                 print(f"[{now_str}] Updating summary page...", flush=True)
-                generate_summary_page(threads, datetime.now().strftime("%b %d"))
+                generate_summary_page(threads, now_pst.strftime("%b %d"))
                 last_count = new_count
                 if first_run:
                     print(f"[{now_str}] Initial summary generated.", flush=True)
