@@ -7,8 +7,8 @@ from datetime import datetime, time as dt_time, timedelta
 
 def get_pst_now():
     """Returns the current time in PST (UTC-8)."""
-    # GitHub Actions runners are in UTC. PST is UTC-8.
-    return datetime.now() - timedelta(hours=8)
+    # Use utcnow() so it works consistently locally and on GitHub Actions (UTC)
+    return datetime.utcnow() - timedelta(hours=8)
 
 def play_alarm():
     """Plays a system sound on macOS."""
@@ -339,12 +339,20 @@ def generate_summary_page(threads, target_date):
                 formatted_content = format_post_content(p['content'])
                 timestamp = p.get('timestamp', '0')
                 
+                # Use PST-converted time for the badge
+                ts_int = int(timestamp)
+                if ts_int > 0:
+                    pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
+                    display_time = pst_dt.strftime("%I:%M:%S %p")
+                else:
+                    display_time = p['time']
+
                 html_content += f"""                <div class="post {css_class}" data-timestamp="{timestamp}" data-hpt="{'true' if is_hpt else 'false'}">
                     <div class="post-meta">
                         <div class="author-info">
                             <span class="author-name {'unclek' if p['author'] == 'UncleK' else ''}">{p['author']} {hpt_tag}</span>
                         </div>
-                        <span class="time-badge">{p['time']}</span>
+                        <span class="time-badge">{display_time}</span>
                     </div>
                     <div class="post-content">{formatted_content}</div>
                 </div>\n"""
@@ -571,11 +579,22 @@ def scrape_uncle_k(email, password, last_known_count=0):
                 
                 if author_el and content_el:
                     current_post_count += 1
+                    raw_ts = entry_time_el.get_attribute("timestamp") if entry_time_el else "0"
+                    
+                    # Convert raw Unix timestamp to PST time string
+                    ts_int = int(raw_ts)
+                    pst_time_str = ""
+                    if ts_int > 0:
+                        pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
+                        pst_time_str = pst_dt.strftime("%I:%M:%S %p")
+                    else:
+                        pst_time_str = time_el.inner_text().strip() if time_el else ""
+
                     post_data = {
                         "author": author_el.inner_text().strip(),
-                        "time": time_el.inner_text().strip() if time_el else "",
+                        "time": pst_time_str,
                         "content": content_el.inner_text().strip(),
-                        "timestamp": entry_time_el.get_attribute("timestamp") if entry_time_el else "0"
+                        "timestamp": raw_ts
                     }
                     if thread_id not in threads:
                         threads[thread_id] = []
