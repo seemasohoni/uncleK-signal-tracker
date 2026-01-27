@@ -19,8 +19,26 @@ To host this on your own GitHub account:
     - Add `EWT_PASSWORD`: Your ElliottWaveTrader password.
 3.  **Enable GitHub Actions**: GitHub Actions should be enabled by default. The script will run automatically on the schedule.
 
-## View results
-The results are saved to `unclek_summary.html`. You can enable **GitHub Pages** in your repository settings to host this file as a live website.
+## GitHub Operations
+
+### 1. How to monitor the script
+Go to your repository on GitHub and click on the **Actions** tab at the top.
+
+You will see a list called "**UncleK Signal Scraper**".
+Every 15 minutes (during market hours), a new "run" will appear here. Green means it succeeded and updated your signals; red means there was an error (usually due to login issues if secrets aren't set).
+
+### 2. How to see your live HTML Dashboard
+To view the results as a website rather than just a code file, you need to enable **GitHub Pages**:
+
+1. Go to **Settings** (top right of your repo).
+2. Click **Pages** on the left sidebar.
+3. Under **Build and deployment > Branch**, change "None" to **main**.
+4. Click **Save**.
+
+Your link will look like this: `https://seemasohoni.github.io/uncleK-signal-tracker/unclek_summary.html`
+*(Note: It may take 1-2 minutes for the link to become active after you save the settings.)*
+
+Feel free to share that link when you're ready! What's the new project you'd like to dive into next?
 
 ## Live Mode & Sound Alerts
 To hear the **loud Cat Call (wolf whistle)** alert for new HPT signals (especially when hosted on GitHub):
