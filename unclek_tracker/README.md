@@ -27,7 +27,14 @@ Go to your repository on GitHub and click on the **Actions** tab at the top.
 You will see a list called "**UncleK Signal Scraper**".
 Every 15 minutes (during market hours), a new "run" will appear here. Green means it succeeded and updated your signals; red means there was an error (usually due to login issues if secrets aren't set).
 
-### 2. How to see your live HTML Dashboard
+### 2. Running the script manually on GitHub
+If you want to trigger an update immediately (e.g., to fix a date or check for a signal right now):
+1. Go to the **Actions** tab at the top of your repository.
+2. Click on "**UncleK Signal Scraper**" in the left sidebar.
+3. Click the gray **Run workflow** dropdown button on the right.
+4. Click the green **Run workflow** button to start the process.
+
+### 3. How to see your live HTML Dashboard
 To view the results as a website rather than just a code file, you need to enable **GitHub Pages**:
 
 1. Go to **Settings** (top right of your repo).
