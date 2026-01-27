@@ -1,4 +1,4 @@
-# UncleK Signal Tracker
+# uncleK-signal-tracker
 
 Automated scraper for `elliottwavetrader.net` that tracks "UncleK" signals and displays them in a premium dashboard.
 
@@ -21,3 +21,10 @@ To host this on your own GitHub account:
 
 ## View results
 The results are saved to `unclek_summary.html`. You can enable **GitHub Pages** in your repository settings to host this file as a live website.
+
+## Troubleshooting GIT Push
+If you see `remote: Repository not found`, it means you need to create the repository on the web second first:
+1. Go to [github.com/new](https://github.com/new)
+2. Create a repo named `uncleK-signal-tracker` (Private)
+3. Do **not** initialize with README or license.
+4. Run `git push -u origin main` in your terminal.
