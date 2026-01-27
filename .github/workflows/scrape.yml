@@ -22,19 +22,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r unclek_tracker/requirements.txt
           python -m playwright install chromium --with-deps
 
       - name: Run Scraper
         env:
           EWT_EMAIL: ${{ secrets.EWT_EMAIL }}
           EWT_PASSWORD: ${{ secrets.EWT_PASSWORD }}
-        run: python login_handler.py --run-once
+        run: python unclek_tracker/login_handler.py --run-once
 
       - name: Commit and Push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add unclek_summary.html response.html
+          git add unclek_tracker/unclek_summary.html unclek_tracker/response.html
           git commit -m "Auto-update signals: $(date)" || echo "No changes to commit"
           git push
