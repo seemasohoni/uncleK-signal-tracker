@@ -29,12 +29,19 @@ jobs:
         env:
           EWT_EMAIL: ${{ secrets.EWT_EMAIL }}
           EWT_PASSWORD: ${{ secrets.EWT_PASSWORD }}
-        run: python unclek_tracker/login_handler.py --run-once
+        working-directory: ./unclek_tracker
+        run: python login_handler.py --run-once
 
       - name: Commit and Push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add unclek_tracker/unclek_summary.html unclek_tracker/response_*.html
+          git add unclek_tracker/unclek_summary.html unclek_tracker/response_*.html || true
           git commit -m "Auto-update signals: $(date)" || echo "No changes to commit"
           git push
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./unclek_tracker
