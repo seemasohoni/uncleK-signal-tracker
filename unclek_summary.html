@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UncleK Terminal - Feb 18</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #05070a;
+            --card-bg: rgba(16, 20, 28, 0.8);
+            --accent-primary: #60a5fa;
+            --accent-secondary: #34d399;
+            --alert-color: #fbbf24;
+            --hpt-color: #fb923c;
+            --text-main: #f1f5f9;
+            --text-muted: #64748b;
+            --border-color: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 90% 90%, rgba(249, 115, 22, 0.08) 0%, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+        }
+        
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .terminal-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px 16px;
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-secondary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-secondary);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        
+        .date-display {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        /* Live Mode Controls */
+        .live-mode-banner {
+            background: rgba(96, 165, 250, 0.1);
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .live-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        #live-toggle-btn {
+            background: var(--accent-primary);
+            color: #000;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #live-toggle-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        #live-toggle-btn.active {
+            background: #ef4444; /* Red for Stop */
+            color: #fff;
+        }
+        
+        .thread-group {
+            margin-bottom: 3.5rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .post {
+            padding: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+            transition: background 0.3s ease;
+        }
+        
+        .post:last-child { border-bottom: none; }
+        
+        .post:hover { background: rgba(255, 255, 255, 0.01); }
+        
+        .post-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.25rem;
+        }
+        
+        .author-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .author-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .author-name.unclek { color: #fff; }
+        
+        .time-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.3);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .post-content {
+            font-size: 1.15rem;
+            color: var(--text-main);
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-weight: 300;
+        }
+        
+        .hpt-alert-card {
+            background: linear-gradient(to right, rgba(249, 115, 22, 0.1), transparent);
+            border-left: 4px solid var(--hpt-color);
+        }
+        
+        .hpt-badge {
+            background: var(--hpt-color);
+            color: #000;
+            font-weight: 800;
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .no-posts {
+            text-align: center;
+            padding: 6rem;
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 1px dashed var(--border-color);
+            color: var(--text-muted);
+        }
+        
+        footer {
+            margin-top: 5rem;
+            text-align: center;
+            padding-bottom: 4rem;
+        }
+        
+        .hpt-highlight {
+            color: var(--hpt-color);
+            font-weight: 800;
+            background: rgba(249, 115, 22, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .config-info {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="terminal-header">
+                <div class="status-dot"></div>
+                <span style="font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-muted);">EWT LIVE TRACKER</span>
+            </div>
+            <h1>UncleK Signals</h1>
+            <div class="date-display">Wednesday &bull; February 18, 2026</div>
+        </header>
+
+        <div class="live-mode-banner">
+            <div class="live-status">
+                <span id="live-indicator-dot" style="width: 10px; height: 10px; background: #475569; border-radius: 50%;"></span>
+                <span id="live-status-text">LIVE MODE: OFF</span>
+            </div>
+            <button id="live-toggle-btn">START LIVE MODE</button>
+        </div>
+        
+        <main id="signals-main">
+            <div class="no-posts">Monitoring for signals... No activity from UncleK yet today.</div>
+        </main>
+        <footer>
+            <div class="config-info">Auto-polling active: 5:00 AM &mdash; 1:30 PM PST</div>
+            <div class="config-info" id="last-refresh-time">Last updated: Just now</div>
+        </footer>
+    </div>
+
+    <script>
+    let isLive = false;
+    let refreshInterval = null;
+    let lastSeenPostTimestamp = 0;
+    const btn = document.getElementById('live-toggle-btn');
+    const statusText = document.getElementById('live-status-text');
+    const dot = document.getElementById('live-indicator-dot');
+    const lastRefreshEl = document.getElementById('last-refresh-time');
+
+    // Synthesis for Cat Call (Wolf Whistle) Sound
+    function playAlert() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Part 1: Slide Up
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(800, ctx.currentTime);
+            osc1.frequency.exponentialRampToValueAtTime(2500, ctx.currentTime + 0.15);
+            
+            gain1.gain.setValueAtTime(0, ctx.currentTime);
+            gain1.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start();
+            osc1.stop(ctx.currentTime + 0.2);
+
+            // Part 2: Slide Down (Cat Call finish)
+            setTimeout(() => {
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(2200, ctx.currentTime);
+                osc2.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.3);
+                
+                gain2.gain.setValueAtTime(0, ctx.currentTime);
+                gain2.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
+                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start();
+                osc2.stop(ctx.currentTime + 0.4);
+            }, 250);
+            
+            console.log("Cat Call played!");
+        } catch(e) { console.error("Audio failed", e); }
+    }
+
+    function updateLastSeen() {
+        const posts = document.querySelectorAll('.post');
+        posts.forEach(p => {
+            const ts = parseInt(p.getAttribute('data-timestamp'));
+            if (ts > lastSeenPostTimestamp) lastSeenPostTimestamp = ts;
+        });
+    }
+
+    async function checkForUpdates() {
+        console.log("Checking for updates...");
+        try {
+            const response = await fetch(window.location.href, { cache: 'no-store' });
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            
+            const newPosts = doc.querySelectorAll('.post');
+            let foundNewHPT = false;
+            let addedCount = 0;
+
+            newPosts.forEach(p => {
+                const ts = parseInt(p.getAttribute('data-timestamp'));
+                if (ts > lastSeenPostTimestamp) {
+                    addedCount++;
+                    if (p.getAttribute('data-hpt') === 'true') foundNewHPT = true;
+                }
+            });
+
+            if (addedCount > 0) {
+                console.log(`Detected ${addedCount} new posts! Refreshing UI...`);
+                if (foundNewHPT) playAlert();
+                
+                // Soft Update to prevent flickering
+                const newContent = doc.getElementById('signals-main').innerHTML;
+                document.getElementById('signals-main').innerHTML = newContent;
+                
+                updateLastSeen();
+                lastRefreshEl.innerText = "Updated: " + new Date().toLocaleTimeString();
+            } else {
+                lastRefreshEl.innerText = "Last checked: " + new Date().toLocaleTimeString();
+            }
+        } catch (e) {
+            console.error("Refresh failed", e);
+        }
+    }
+
+    btn.addEventListener('click', () => {
+        isLive = !isLive;
+        if (isLive) {
+            btn.innerText = "STOP LIVE MODE";
+            btn.classList.add('active');
+            statusText.innerText = "LIVE MODE: ACTIVE";
+            dot.style.background = "#22c55e";
+            dot.style.boxShadow = "0 0 10px #22c55e";
+            updateLastSeen();
+            // Check every 2 minutes
+            refreshInterval = setInterval(checkForUpdates, 120000);
+            // Play a small sound just for confirmation
+            playAlert();
+        } else {
+            btn.innerText = "START LIVE MODE";
+            btn.classList.remove('active');
+            statusText.innerText = "LIVE MODE: OFF";
+            dot.style.background = "#475569";
+            dot.style.boxShadow = "none";
+            clearInterval(refreshInterval);
+        }
+    });
+
+    // Initialize last seen
+    updateLastSeen();
+    </script>
+</body>
+</html>
