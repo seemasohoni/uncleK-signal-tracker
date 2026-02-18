@@ -525,124 +525,121 @@ def scrape_uncle_k(email, password, last_known_count=0):
     now = get_pst_now()
     site_today = now.strftime("%b %d")
     
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        page = context.new_page()
+    # Initialize return values
+    threads = {}
+    has_new = False
+    current_post_count = 0
+    new_hpt_found = False
 
-        print(f"Navigating to login page...", flush=True)
-        page.goto("https://www.elliottwavetrader.net/login")
-        print(f"Filling credentials...", flush=True)
-        page.fill('input[name="email"]', email)
-        page.fill('input[name="password"]', password)
-        print(f"Submitting login...", flush=True)
-        page.click('button[type="submit"]')
-        page.wait_for_load_state("networkidle")
-        print(f"Login successful. Navigating to Tag page...", flush=True)
-
-        tags = ["UncleKSignals", "UncleKPowerplay"]
-        threads = {}
-        uncle_k_thread_ids = set()
-        scraped_post_ids = set()
-        total_posts_processed = 0
-        new_hpt_found = False
-        current_post_count = 0
-
-        for tag in tags:
-            print(f"Navigating to Tag page: {tag}...", flush=True)
-            page.goto(f"https://www.elliottwavetrader.net/trading-room/tag/{tag}")
-            print(f"Waiting for entries to load...", flush=True)
-            try:
-                page.wait_for_selector(".atc-entry", timeout=30000)
-                # Save full scraped page content as discussed (overwriting for the last tag, or we could append)
-                # For debugging, we might want to save distinct files, but for now we keep behavior similar.
-                with open(f"response_{tag}.html", "w", encoding="utf-8") as f:
-                    f.write(page.content())
-            except Exception as e:
-                print(f"Error during scraping {tag}: {e}", flush=True)
-                continue
-
-            all_entries = page.query_selector_all(".atc-entry")
-            
-            # Phase 1: Identify all UncleK posts from today in this tag
-            for entry in all_entries:
-                date_el = entry.query_selector(".atc-datePart")
-                if not date_el or site_today not in date_el.inner_text():
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            page = context.new_page()
+    
+            print(f"Navigating to login page...", flush=True)
+            page.goto("https://www.elliottwavetrader.net/login")
+            print(f"Filling credentials...", flush=True)
+            page.fill('input[name="email"]', email)
+            page.fill('input[name="password"]', password)
+            print(f"Submitting login...", flush=True)
+            page.click('button[type="submit"]')
+            page.wait_for_load_state("networkidle")
+            print(f"Login successful. Navigating to Tag page...", flush=True)
+    
+            tags = ["UncleKSignals", "UncleKPowerplay"]
+            uncle_k_thread_ids = set()
+            scraped_post_ids = set()
+    
+            for tag in tags:
+                print(f"Navigating to Tag page: {tag}...", flush=True)
+                page.goto(f"https://www.elliottwavetrader.net/trading-room/tag/{tag}")
+                print(f"Waiting for entries to load...", flush=True)
+                try:
+                    page.wait_for_selector(".atc-entry", timeout=30000)
+                    with open(f"response_{tag}.html", "w", encoding="utf-8") as f:
+                        f.write(page.content())
+                except Exception as e:
+                    print(f"Error during scraping {tag}: {e}", flush=True)
                     continue
+    
+                all_entries = page.query_selector_all(".atc-entry")
                 
-                author_el = entry.query_selector(".atc-username")
-                if author_el and "UncleK" in author_el.inner_text():
-                    thread_id = entry.get_attribute("threadid")
-                    if thread_id:
-                        uncle_k_thread_ids.add(thread_id)
-
-            # Phase 2: Collect data & count
-            for entry in all_entries:
-                thread_id = entry.get_attribute("threadid")
-                post_id = entry.get_attribute("id") # Unique ID for the post div
-
-                if thread_id in uncle_k_thread_ids:
-                    # Deduplication check
-                    if post_id and post_id in scraped_post_ids:
+                # Phase 1: Identify threads
+                for entry in all_entries:
+                    date_el = entry.query_selector(".atc-datePart")
+                    if not date_el or site_today not in date_el.inner_text():
                         continue
-
-                    # We show all posts in a thread involving UncleK from today,
-                    # but we'll prioritize UncleK's specific posts.
-                    author_el = entry.query_selector(".atc-username")
-                    time_el = entry.query_selector(".atc-timePart")
-                    content_el = entry.query_selector(".atc-entrytext")
-                    entry_time_el = entry.query_selector(".atc-entrytime")
                     
-                    if author_el and content_el:
-                        # Filter for UncleK posts or posts in the thread from today
-                        date_el = entry.query_selector(".atc-datePart")
-                        is_today = date_el and site_today in date_el.inner_text()
+                    author_el = entry.query_selector(".atc-username")
+                    if author_el and "UncleK" in author_el.inner_text():
+                        thread_id = entry.get_attribute("threadid")
+                        if thread_id:
+                            uncle_k_thread_ids.add(thread_id)
+    
+                # Phase 2: Collect data
+                for entry in all_entries:
+                    thread_id = entry.get_attribute("threadid")
+                    post_id = entry.get_attribute("id")
+    
+                    if thread_id in uncle_k_thread_ids:
+                        if post_id and post_id in scraped_post_ids:
+                            continue
+    
+                        author_el = entry.query_selector(".atc-username")
+                        time_el = entry.query_selector(".atc-timePart")
+                        content_el = entry.query_selector(".atc-entrytext")
+                        entry_time_el = entry.query_selector(".atc-entrytime")
                         
-                        if is_today:
-                            current_post_count += 1
-                            if post_id:
-                                scraped_post_ids.add(post_id)
-
-                            raw_ts = entry_time_el.get_attribute("timestamp") if entry_time_el else "0"
+                        if author_el and content_el:
+                            date_el = entry.query_selector(".atc-datePart")
+                            is_today = date_el and site_today in date_el.inner_text()
                             
-                            # Convert raw Unix timestamp to PST time string
-                            ts_int = int(raw_ts)
-                            pst_time_str = ""
-                            if ts_int > 0:
-                                pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
-                                pst_time_str = pst_dt.strftime("%I:%M:%S %p")
-                            else:
-                                pst_time_str = time_el.inner_text().strip() if time_el else ""
-
-                            post_data = {
-                                "author": author_el.inner_text().strip(),
-                                "time": pst_time_str,
-                                "content": content_el.inner_text().strip(),
-                                "timestamp": raw_ts
-                            }
-                            if thread_id not in threads:
-                                threads[thread_id] = []
-                            threads[thread_id].append(post_data)
-
-        # Check for new posts
-        has_new = current_post_count > last_known_count
-        
-        # Check newly added posts for HPT (Phase 2.5)
-        # For simplicity, if count increased, check all for HPT alerts
-        if has_new:
+                            if is_today:
+                                current_post_count += 1
+                                if post_id:
+                                    scraped_post_ids.add(post_id)
+    
+                                raw_ts = entry_time_el.get_attribute("timestamp") if entry_time_el else "0"
+                                ts_int = int(raw_ts)
+                                pst_time_str = ""
+                                if ts_int > 0:
+                                    pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
+                                    pst_time_str = pst_dt.strftime("%I:%M:%S %p")
+                                else:
+                                    pst_time_str = time_el.inner_text().strip() if time_el else ""
+    
+                                post_data = {
+                                    "author": author_el.inner_text().strip(),
+                                    "time": pst_time_str,
+                                    "content": content_el.inner_text().strip(),
+                                    "timestamp": raw_ts
+                                }
+                                if thread_id not in threads:
+                                    threads[thread_id] = []
+                                threads[thread_id].append(post_data)
+    
+            # Check for new posts
+            has_new = current_post_count > last_known_count
+            
+            # Check for HPT
+            if has_new:
+                for thread_id in threads:
+                    for p in threads[thread_id]:
+                        if p['author'] == "UncleK" and has_hpt(p['content']):
+                            new_hpt_found = True
+    
             for thread_id in threads:
-                for p in threads[thread_id]:
-                    if p['author'] == "UncleK" and has_hpt(p['content']):
-                        # Only alert if this HPT wasn't in the previous count logic 
-                        # (Ideally we'd track IDs, but count is a good proxy for this demo)
-                        new_hpt_found = True
+                threads[thread_id].sort(key=lambda x: int(x['timestamp']))
+    
+            print(f"Found {len(uncle_k_thread_ids)} UncleK threads and {current_post_count} posts across tags.", flush=True)
+            browser.close()
+            
+    except Exception as e:
+        print(f"Critical error in scrape_uncle_k: {e}", flush=True)
+        return {}, False, 0, False
 
-        for thread_id in threads:
-            threads[thread_id].sort(key=lambda x: int(x['timestamp']))
-
-        print(f"Found {len(uncle_k_thread_ids)} UncleK threads and {current_post_count} posts across tags.", flush=True)
-        browser.close()
-        return threads, has_new, current_post_count, new_hpt_found
+    return threads, has_new, current_post_count, new_hpt_found
 
 if __name__ == "__main__":
     import argparse
