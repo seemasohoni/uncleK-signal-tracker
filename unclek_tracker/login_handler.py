@@ -544,8 +544,39 @@ def scrape_uncle_k(email, password, last_known_count=0):
             page.fill('input[name="password"]', password)
             print(f"Submitting login...", flush=True)
             page.click('button[type="submit"]')
-            page.wait_for_load_state("networkidle")
-            print(f"Login successful. Navigating to Tag page...", flush=True)
+
+            # Wait for navigation to complete - Check for success or error
+            try:
+                # Look for Logout link (success) OR alert (failure)
+                page.wait_for_selector('a[href*="/logout"], .alert-danger', timeout=20000)
+                
+                if page.is_visible('.alert-danger'):
+                    error_text = page.inner_text('.alert-danger')
+                    print(f"Login failed: {error_text}", flush=True)
+                    # Save login failure artifacts
+                    page.screenshot(path="login_failed.png")
+                    with open("login_failed.html", "w", encoding="utf-8") as f:
+                        f.write(page.content())
+                    browser.close()
+                    return {}, False, 0, False
+                
+                if not page.is_visible('a[href*="/logout"]'):
+                    print("Login verification failed: 'Logout' link not found.", flush=True)
+                    page.screenshot(path="login_verification_failed.png")
+                    with open("login_verification_failed.html", "w", encoding="utf-8") as f:
+                        f.write(page.content())
+                    browser.close()
+                    return {}, False, 0, False
+
+            except Exception as e:
+                print(f"Error during login verification: {e}", flush=True)
+                page.screenshot(path="login_error.png")
+                with open("login_error.html", "w", encoding="utf-8") as f:
+                    f.write(page.content())
+                browser.close()
+                return {}, False, 0, False
+            
+            print(f"Login verified successful. Navigating to Tag page...", flush=True)
     
             tags = ["UncleKSignals", "UncleKPowerplay"]
             uncle_k_thread_ids = set()
