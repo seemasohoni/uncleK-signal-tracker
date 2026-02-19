@@ -556,11 +556,18 @@ def scrape_uncle_k(email, password, last_known_count=0):
                 page.goto(f"https://www.elliottwavetrader.net/trading-room/tag/{tag}")
                 print(f"Waiting for entries to load...", flush=True)
                 try:
-                    page.wait_for_selector(".atc-entry", timeout=30000)
+                    page.wait_for_selector(".atc-entry", timeout=60000)
                     with open(f"response_{tag}.html", "w", encoding="utf-8") as f:
                         f.write(page.content())
                 except Exception as e:
                     print(f"Error during scraping {tag}: {e}", flush=True)
+                    try:
+                        page.screenshot(path=f"failed_screenshot_{tag}.png")
+                        with open(f"failed_response_{tag}.html", "w", encoding="utf-8") as f:
+                            f.write(page.content())
+                        print(f"Saved debug artifacts for {tag}", flush=True)
+                    except Exception as save_err:
+                        print(f"Failed to save debug artifacts: {save_err}", flush=True)
                     continue
     
                 all_entries = page.query_selector_all(".atc-entry")
