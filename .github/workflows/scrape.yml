@@ -25,19 +25,22 @@ jobs:
           pip install -r unclek_tracker/requirements.txt
           python -m playwright install chromium --with-deps
 
+      - name: Debug Path
+        run: |
+          pwd
+          ls -R
+
       - name: Run Scraper
         env:
           EWT_EMAIL: ${{ secrets.EWT_EMAIL }}
           EWT_PASSWORD: ${{ secrets.EWT_PASSWORD }}
-        working-directory: ./unclek_tracker
-        run: python login_handler.py --run-once
+        run: python unclek_tracker/login_handler.py --run-once
 
       - name: Commit and Push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add unclek_tracker/unclek_summary.html unclek_tracker/response_*.html unclek_tracker/state.json || true
-          git rm --cached unclek_tracker/failed_* unclek_tracker/login_* || true
+          git add unclek_tracker/*.html unclek_tracker/state.json unclek_tracker/*.png || true
           git commit -m "Auto-update signals: $(date)" || echo "No changes to commit"
           git push
 
