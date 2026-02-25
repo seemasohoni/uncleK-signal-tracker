@@ -541,6 +541,16 @@ def scrape_uncle_k(email, password, last_known_count=0):
     now = get_pst_now()
     site_today = now.strftime("%b %d")
     
+    # Calculate start of today in PST as a timestamp for robust filtering
+    pst_now = get_pst_now()
+    start_of_today_pst = pst_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Convert back to UTC for comparison if needed, or just work with PST
+    # The site uses Unix timestamps which are UTC. 
+    # To get "00:00 PST" in UTC timestamp, we add 8 hours.
+    start_of_day_utc_ts = int((start_of_today_pst + timedelta(hours=8)).timestamp())
+    
+    print(f"Scraping signals since {start_of_today_pst.strftime('%Y-%m-%d %I:%M:%S %p')} PST (TS: {start_of_day_utc_ts})", flush=True)
+
     # Initialize return values
     threads = {}
     has_new = False
@@ -633,77 +643,76 @@ def scrape_uncle_k(email, password, last_known_count=0):
                     return {}, False, 0, False
 
             
-            print(f"Navigating to Tag page...", flush=True)
-
-            tags = ["UncleKSignals", "UncleKPowerplay"]
+            print(f"Navigating to Tag and Profile pages...", flush=True)
+    
+            # URLs to scrape: Profile (guaranteed UncleK) + Tags (to catch others or ensure coverage)
+            sources = [
+                {"name": "Profile", "url": "https://www.elliottwavetrader.net/trading-room/user/60035/post-type/initial"},
+                {"name": "UncleKSignals", "url": "https://www.elliottwavetrader.net/trading-room/tag/UncleKSignals"},
+                {"name": "UncleKPowerplay", "url": "https://www.elliottwavetrader.net/trading-room/tag/UncleKPowerplay"}
+            ]
+            
             uncle_k_thread_ids = set()
             scraped_post_ids = set()
     
-            for tag in tags:
-                print(f"Navigating to Tag page: {tag}...", flush=True)
-                page.goto(f"https://www.elliottwavetrader.net/trading-room/tag/{tag}", timeout=60000)
-                handle_cookie_banner(page)
-                print(f"Waiting for entries to load...", flush=True)
+            for source in sources:
+                name = source["name"]
+                url = source["url"]
+                print(f"Navigating to {name}: {url}...", flush=True)
                 try:
-                    page.wait_for_selector(".atc-entry", timeout=60000)
-                    with open(f"response_{tag}.html", "w", encoding="utf-8") as f:
-                        f.write(page.content())
+                    page.goto(url, timeout=60000)
+                    handle_cookie_banner(page)
+                    page.wait_for_selector(".atc-entry", timeout=30000)
                 except Exception as e:
-                    print(f"Error during scraping {tag}: {e}", flush=True)
-                    try:
-                        page.screenshot(path=f"failed_screenshot_{tag}.png")
-                        with open(f"failed_response_{tag}.html", "w", encoding="utf-8") as f:
-                            f.write(page.content())
-                        print(f"Saved debug artifacts for {tag}", flush=True)
-                    except Exception as save_err:
-                        print(f"Failed to save debug artifacts: {save_err}", flush=True)
+                    print(f"No entries found or timeout on {name}. Continuing...", flush=True)
                     continue
     
                 all_entries = page.query_selector_all(".atc-entry")
+                print(f"Found {len(all_entries)} total entries on {name} page.", flush=True)
                 
-                # Phase 1: Identify threads
+                # Phase 1: Identify threads from today
                 for entry in all_entries:
-                    date_el = entry.query_selector(".atc-datePart")
-                    if not date_el or site_today not in date_el.inner_text():
+                    raw_ts = entry.get_attribute("posttime") or "0"
+                    ts_int = int(raw_ts)
+                    
+                    # Filtering by timestamp instead of text date
+                    if ts_int < start_of_day_utc_ts:
                         continue
                     
                     author_el = entry.query_selector(".atc-username")
-                    if author_el and "UncleK" in author_el.inner_text():
+                    author_name = author_el.inner_text().strip() if author_el else ""
+                    
+                    if "UncleK" in author_name:
                         thread_id = entry.get_attribute("threadid")
                         if thread_id:
                             uncle_k_thread_ids.add(thread_id)
     
-                # Phase 2: Collect data
+                # Phase 2: Collect data for recognized UncleK threads from today
                 for entry in all_entries:
                     thread_id = entry.get_attribute("threadid")
                     post_id = entry.get_attribute("id")
+                    raw_ts = entry.get_attribute("posttime") or "0"
+                    ts_int = int(raw_ts)
     
                     if thread_id in uncle_k_thread_ids:
                         if post_id and post_id in scraped_post_ids:
                             continue
+                        
+                        # Only include today's posts (PST)
+                        if ts_int < start_of_day_utc_ts:
+                            continue
     
                         author_el = entry.query_selector(".atc-username")
-                        time_el = entry.query_selector(".atc-timePart")
                         content_el = entry.query_selector(".atc-entrytext")
-                        entry_time_el = entry.query_selector(".atc-entrytime")
                         
                         if author_el and content_el:
-                            date_el = entry.query_selector(".atc-datePart")
-                            is_today = date_el and site_today in date_el.inner_text()
-                            
-                            if is_today:
-                                current_post_count += 1
-                                if post_id:
-                                    scraped_post_ids.add(post_id)
-    
-                                raw_ts = entry_time_el.get_attribute("timestamp") if entry_time_el else "0"
-                                ts_int = int(raw_ts)
-                                pst_time_str = ""
-                                if ts_int > 0:
-                                    pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
-                                    pst_time_str = pst_dt.strftime("%I:%M:%S %p")
-                                else:
-                                    pst_time_str = time_el.inner_text().strip() if time_el else ""
+                            current_post_count += 1
+                            if post_id:
+                                scraped_post_ids.add(post_id)
+                                
+                                # Convert timestamp to PST string for display
+                                pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
+                                pst_time_str = pst_dt.strftime("%I:%M:%S %p")
     
                                 post_data = {
                                     "author": author_el.inner_text().strip(),
@@ -728,7 +737,7 @@ def scrape_uncle_k(email, password, last_known_count=0):
             for thread_id in threads:
                 threads[thread_id].sort(key=lambda x: int(x['timestamp']))
     
-            print(f"Found {len(uncle_k_thread_ids)} UncleK threads and {current_post_count} posts across tags.", flush=True)
+            print(f"Found {len(uncle_k_thread_ids)} UncleK threads and {current_post_count} posts in total.", flush=True)
             browser.close()
             
     except Exception as e:
