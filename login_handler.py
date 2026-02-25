@@ -518,6 +518,22 @@ def is_within_time_window():
     end = dt_time(13, 30)
     return start <= current_time <= end
 
+def handle_cookie_banner(page):
+    """Detects and accepts the 'We Value Your Privacy' cookie banner if present."""
+    try:
+        # Check for the Accept All button in the banner
+        banner_selector = "#banner-accept-all"
+        if page.is_visible(banner_selector, timeout=5000):
+            print("Cookie banner detected. Clicking 'Accept All'...", flush=True)
+            page.click(banner_selector)
+            # Short wait to allow banner to disappear
+            page.wait_for_timeout(1000)
+            return True
+    except Exception as e:
+        # Silently fail if banner handling fails, as it might not be critical
+        pass
+    return False
+
 def scrape_uncle_k(email, password, last_known_count=0):
     """
     Scrapes the signals and returns threads, and whether there are new posts.
@@ -534,57 +550,99 @@ def scrape_uncle_k(email, password, last_known_count=0):
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            context = browser.new_context(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            page = context.new_page()
-    
-            print(f"Navigating to login page...", flush=True)
-            page.goto("https://www.elliottwavetrader.net/login")
-            print(f"Filling credentials...", flush=True)
-            page.fill('input[name="email"]', email)
-            page.fill('input[name="password"]', password)
-            print(f"Submitting login...", flush=True)
-            page.click('button[type="submit"]')
-
-            # Wait for navigation to complete - Check for success or error
-            try:
-                # Look for Logout link (success) OR alert (failure)
-                page.wait_for_selector('a[href*="/logout"], .alert-danger', timeout=20000)
-                
-                if page.is_visible('.alert-danger'):
-                    error_text = page.inner_text('.alert-danger')
-                    print(f"Login failed: {error_text}", flush=True)
-                    # Save login failure artifacts
-                    page.screenshot(path="login_failed.png")
-                    with open("login_failed.html", "w", encoding="utf-8") as f:
-                        f.write(page.content())
-                    browser.close()
-                    return {}, False, 0, False
-                
-                if not page.is_visible('a[href*="/logout"]'):
-                    print("Login verification failed: 'Logout' link not found.", flush=True)
-                    page.screenshot(path="login_verification_failed.png")
-                    with open("login_verification_failed.html", "w", encoding="utf-8") as f:
-                        f.write(page.content())
-                    browser.close()
-                    return {}, False, 0, False
-
-            except Exception as e:
-                print(f"Error during login verification: {e}", flush=True)
-                page.screenshot(path="login_error.png")
-                with open("login_error.html", "w", encoding="utf-8") as f:
-                    f.write(page.content())
-                browser.close()
-                return {}, False, 0, False
+            # Try to load existing session
+            session_file = "state.json"
+            if os.path.exists(session_file):
+                print(f"Loading session from {session_file}", flush=True)
+                context = browser.new_context(storage_state=session_file, user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            else:
+                context = browser.new_context(user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             
-            print(f"Login verified successful. Navigating to Tag page...", flush=True)
-    
+            page = context.new_page()
+
+            # Check if already logged in
+            print(f"Checking login status...", flush=True)
+            is_logged_in = False
+            try:
+                page.goto("https://www.elliottwavetrader.net/trading-room", timeout=30000)
+                # If we are redirected to login, or if "Member Login" text is present, we are not logged in
+                if "login" in page.url or page.is_visible('input[name="email"]'):
+                     print("Session invalid or expired (redirected to login).", flush=True)
+                     is_logged_in = False
+                else:
+                    try:
+                        page.wait_for_selector('a[href*="/logout"]', timeout=5000)
+                        print("Already logged in (session valid).", flush=True)
+                        is_logged_in = True
+                    except:
+                        print("Session invalid or expired (logout link not found).", flush=True)
+                        is_logged_in = False
+            except Exception as e:
+                print(f"Error checking login status: {e}. Proceeding to login...", flush=True)
+                is_logged_in = False
+
+            if not is_logged_in:
+                print(f"Navigating to login page...", flush=True)
+                page.goto("https://www.elliottwavetrader.net/login", timeout=60000)
+                handle_cookie_banner(page)
+                
+                print(f"Filling credentials...", flush=True)
+                page.fill('input[name="email"]', email)
+                page.fill('input[name="password"]', password)
+                print(f"Submitting login...", flush=True)
+                page.click('button[type="submit"]')
+
+                # Wait for navigation to complete - Check for success or error
+                try:
+                    # Look for Logout link (success) OR alert (failure) OR logged-in indicators
+                    # Added #banner-accept-all just in case it appears right after login
+                    page.wait_for_selector('.logged-in, .navTradingRoom, .alert-danger, #banner-accept-all', timeout=30000)
+                    
+                    if page.is_visible('#banner-accept-all'):
+                        handle_cookie_banner(page)
+
+                    if page.is_visible('.alert-danger'):
+                        error_text = page.inner_text('.alert-danger')
+                        print(f"Login failed: {error_text}", flush=True)
+                        # Save login failure artifacts
+                        page.screenshot(path="login_failed.png")
+                        with open("login_failed.html", "w", encoding="utf-8") as f:
+                            f.write(page.content())
+                        browser.close()
+                        return {}, False, 0, False
+                    
+                    # If we see .logged-in or .navTradingRoom, we made it!
+                    if page.is_visible('.logged-in') or page.is_visible('.navTradingRoom'):
+                        print(f"Login verified successful (found dashboard elements). Saving session...", flush=True)
+                        context.storage_state(path=session_file)
+                        print(f"Session saved to {session_file}", flush=True)
+                    else:
+                        print("Login verification failed: Dashboard elements not found after wait.", flush=True)
+                        page.screenshot(path="login_verification_failed.png")
+                        with open("login_verification_failed.html", "w", encoding="utf-8") as f:
+                            f.write(page.content())
+                        browser.close()
+                        return {}, False, 0, False
+
+                except Exception as e:
+                    print(f"Error during login verification: {e}", flush=True)
+                    page.screenshot(path="login_error.png")
+                    with open("login_error.html", "w", encoding="utf-8") as f:
+                        f.write(page.content())
+                    browser.close()
+                    return {}, False, 0, False
+
+            
+            print(f"Navigating to Tag page...", flush=True)
+
             tags = ["UncleKSignals", "UncleKPowerplay"]
             uncle_k_thread_ids = set()
             scraped_post_ids = set()
     
             for tag in tags:
                 print(f"Navigating to Tag page: {tag}...", flush=True)
-                page.goto(f"https://www.elliottwavetrader.net/trading-room/tag/{tag}")
+                page.goto(f"https://www.elliottwavetrader.net/trading-room/tag/{tag}", timeout=60000)
+                handle_cookie_banner(page)
                 print(f"Waiting for entries to load...", flush=True)
                 try:
                     page.wait_for_selector(".atc-entry", timeout=60000)
