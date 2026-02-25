@@ -710,12 +710,15 @@ def scrape_uncle_k(email, password, last_known_count=0):
                             if post_id:
                                 scraped_post_ids.add(post_id)
                                 
-                                # Convert timestamp to PST string for display
+                                # Use already available ts_int/raw_ts
                                 pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
                                 pst_time_str = pst_dt.strftime("%I:%M:%S %p")
-    
+                                
+                                author_name = author_el.inner_text().strip()
+                                print(f"  [FOUND] {pst_time_str} - {author_name}: {content_el.inner_text().strip()[:50]}...", flush=True)
+
                                 post_data = {
-                                    "author": author_el.inner_text().strip(),
+                                    "author": author_name,
                                     "time": pst_time_str,
                                     "content": content_el.inner_text().strip(),
                                     "timestamp": raw_ts
