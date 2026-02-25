@@ -36,7 +36,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add unclek_tracker/unclek_summary.html unclek_tracker/response_*.html unclek_tracker/failed_*.html unclek_tracker/failed_*.png unclek_tracker/login_*.html unclek_tracker/login_*.png || true
+          git add unclek_tracker/unclek_summary.html unclek_tracker/response_*.html unclek_tracker/state.json || true
+          git rm --cached unclek_tracker/failed_* unclek_tracker/login_* || true
           git commit -m "Auto-update signals: $(date)" || echo "No changes to commit"
           git push
 
