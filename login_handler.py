@@ -1,9 +1,10 @@
+import calendar
 import time
 import re
-from playwright.sync_api import sync_playwright
 import os
 import sys
-from datetime import datetime, time as dt_time, timedelta
+from datetime import datetime, time as dt_time, timedelta, timezone
+from playwright.sync_api import sync_playwright
 
 def get_pst_now():
     """Returns the current time in PST (UTC-8)."""
@@ -363,136 +364,36 @@ def generate_summary_page(threads, target_date):
     html_content += """        </main>
         <footer>
             <div class="config-info">Auto-polling active: 5:00 AM &mdash; 1:30 PM PST</div>
-            <div class="config-info" id="last-refresh-time">Last updated: Just now</div>
+            <div class="config-info" id="last-refresh-time">Last updated: {now_pst.strftime("%I:%M %p")}</div>
         </footer>
     </div>
-
-    <script>
-    let isLive = false;
-    let refreshInterval = null;
-    let lastSeenPostTimestamp = 0;
-    const btn = document.getElementById('live-toggle-btn');
-    const statusText = document.getElementById('live-status-text');
-    const dot = document.getElementById('live-indicator-dot');
-    const lastRefreshEl = document.getElementById('last-refresh-time');
-
-    // Synthesis for Cat Call (Wolf Whistle) Sound
-    function playAlert() {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            
-            // Part 1: Slide Up
-            const osc1 = ctx.createOscillator();
-            const gain1 = ctx.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(800, ctx.currentTime);
-            osc1.frequency.exponentialRampToValueAtTime(2500, ctx.currentTime + 0.15);
-            
-            gain1.gain.setValueAtTime(0, ctx.currentTime);
-            gain1.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
-            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-            
-            osc1.connect(gain1);
-            gain1.connect(ctx.destination);
-            osc1.start();
-            osc1.stop(ctx.currentTime + 0.2);
-
-            // Part 2: Slide Down (Cat Call finish)
-            setTimeout(() => {
-                const osc2 = ctx.createOscillator();
-                const gain2 = ctx.createGain();
-                osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(2200, ctx.currentTime);
-                osc2.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.3);
-                
-                gain2.gain.setValueAtTime(0, ctx.currentTime);
-                gain2.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
-                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-                
-                osc2.connect(gain2);
-                gain2.connect(ctx.destination);
-                osc2.start();
-                osc2.stop(ctx.currentTime + 0.4);
-            }, 250);
-            
-            console.log("Cat Call played!");
-        } catch(e) { console.error("Audio failed", e); }
-    }
-
-    function updateLastSeen() {
-        const posts = document.querySelectorAll('.post');
-        posts.forEach(p => {
-            const ts = parseInt(p.getAttribute('data-timestamp'));
-            if (ts > lastSeenPostTimestamp) lastSeenPostTimestamp = ts;
-        });
-    }
-
-    async function checkForUpdates() {
-        console.log("Checking for updates...");
-        try {
-            const response = await fetch(window.location.href, { cache: 'no-store' });
-            const text = await response.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
-            
-            const newPosts = doc.querySelectorAll('.post');
-            let foundNewHPT = false;
-            let addedCount = 0;
-
-            newPosts.forEach(p => {
-                const ts = parseInt(p.getAttribute('data-timestamp'));
-                if (ts > lastSeenPostTimestamp) {
-                    addedCount++;
-                    if (p.getAttribute('data-hpt') === 'true') foundNewHPT = true;
-                }
-            });
-
-            if (addedCount > 0) {
-                console.log(`Detected ${addedCount} new posts! Refreshing UI...`);
-                if (foundNewHPT) playAlert();
-                
-                // Soft Update to prevent flickering
-                const newContent = doc.getElementById('signals-main').innerHTML;
-                document.getElementById('signals-main').innerHTML = newContent;
-                
-                updateLastSeen();
-                lastRefreshEl.innerText = "Updated: " + new Date().toLocaleTimeString();
-            } else {
-                lastRefreshEl.innerText = "Last checked: " + new Date().toLocaleTimeString();
-            }
-        } catch (e) {
-            console.error("Refresh failed", e);
-        }
-    }
-
-    btn.addEventListener('click', () => {
-        isLive = !isLive;
-        if (isLive) {
-            btn.innerText = "STOP LIVE MODE";
-            btn.classList.add('active');
-            statusText.innerText = "LIVE MODE: ACTIVE";
-            dot.style.background = "#22c55e";
-            dot.style.boxShadow = "0 0 10px #22c55e";
-            updateLastSeen();
-            // Check every 2 minutes
-            refreshInterval = setInterval(checkForUpdates, 120000);
-            // Play a small sound just for confirmation
-            playAlert();
-        } else {
-            btn.innerText = "START LIVE MODE";
-            btn.classList.remove('active');
-            statusText.innerText = "LIVE MODE: OFF";
-            dot.style.background = "#475569";
-            dot.style.boxShadow = "none";
-            clearInterval(refreshInterval);
-        }
-    });
-
-    // Initialize last seen
-    updateLastSeen();
-    </script>
 </body>
 </html>"""
+    
+    # Simple content replacement without the JS junk for now
+    if threads:
+        all_posts_html = ""
+        for thread_id in threads:
+            all_posts_html += '            <div class="thread-group">\n'
+            for p in threads[thread_id]:
+                is_hpt = has_hpt(p['content'])
+                css_class = "hpt-alert-card" if is_hpt else ""
+                hpt_tag = '<span class="hpt-badge">HPT TARGET</span>' if is_hpt else ""
+                formatted_content = p['content'].replace('\n', '<br>')
+                
+                all_posts_html += f"""                <div class="post {css_class}" data-timestamp="{p['timestamp']}">
+                    <div class="post-meta">
+                        <div class="author-info">
+                            <span class="author-name {'unclek' if p['author'] == 'UncleK' else ''}">{p['author']} {hpt_tag}</span>
+                        </div>
+                        <span class="time-badge">{p['time']}</span>
+                    </div>
+                    <div class="post-content">{formatted_content}</div>
+                </div>\n"""
+            all_posts_html += '            </div>\n'
+        html_content = html_content.replace("{%CONTENT%}", all_posts_html)
+    else:
+        html_content = html_content.replace("{%CONTENT%}", '            <div class="no-posts">Monitoring for signals... No activity from UncleK yet today.</div>\n')
     
     with open("unclek_summary.html", "w", encoding="utf-8") as f:
         f.write(html_content)
@@ -541,15 +442,17 @@ def scrape_uncle_k(email, password, last_known_count=0):
     now = get_pst_now()
     site_today = now.strftime("%b %d")
     
-    # Calculate start of today in PST as a timestamp for robust filtering
+    # Calculate start of today in PST as a UTC timestamp for robust filtering
+    # 00:00 PST = 08:00 UTC (during winter/PST)
     pst_now = get_pst_now()
-    start_of_today_pst = pst_now.replace(hour=0, minute=0, second=0, microsecond=0)
-    # Convert back to UTC for comparison if needed, or just work with PST
-    # The site uses Unix timestamps which are UTC. 
-    # To get "00:00 PST" in UTC timestamp, we add 8 hours.
-    start_of_day_utc_ts = int((start_of_today_pst + timedelta(hours=8)).timestamp())
+    # Create a tuple for 08:00 UTC on the same calendar day
+    utc_cutoff_tuple = (pst_now.year, pst_now.month, pst_now.day, 8, 0, 0)
+    start_of_day_utc_ts = calendar.timegm(utc_cutoff_tuple)
     
-    print(f"Scraping signals since {start_of_today_pst.strftime('%Y-%m-%d %I:%M:%S %p')} PST (TS: {start_of_day_utc_ts})", flush=True)
+    print(f"--- DEBUG TRACE ---", flush=True)
+    print(f"Current PST Time: {pst_now.strftime('%Y-%m-%d %I:%M:%S %p')}", flush=True)
+    print(f"UTC Cutoff Time: {pst_now.strftime('%Y-%m-%d')} 08:00:00 UTC (TS: {start_of_day_utc_ts})", flush=True)
+    print(f"-------------------", flush=True)
 
     # Initialize return values
     threads = {}
@@ -605,7 +508,6 @@ def scrape_uncle_k(email, password, last_known_count=0):
                 # Wait for navigation to complete - Check for success or error
                 try:
                     # Look for Logout link (success) OR alert (failure) OR logged-in indicators
-                    # Added #banner-accept-all just in case it appears right after login
                     page.wait_for_selector('.logged-in, .navTradingRoom, .alert-danger, #banner-accept-all', timeout=30000)
                     
                     if page.is_visible('#banner-accept-all'):
@@ -614,34 +516,25 @@ def scrape_uncle_k(email, password, last_known_count=0):
                     if page.is_visible('.alert-danger'):
                         error_text = page.inner_text('.alert-danger')
                         print(f"Login failed: {error_text}", flush=True)
-                        # Save login failure artifacts
                         page.screenshot(path="login_failed.png")
-                        with open("login_failed.html", "w", encoding="utf-8") as f:
-                            f.write(page.content())
                         browser.close()
                         return {}, False, 0, False
                     
-                    # If we see .logged-in or .navTradingRoom, we made it!
                     if page.is_visible('.logged-in') or page.is_visible('.navTradingRoom'):
-                        print(f"Login verified successful (found dashboard elements). Saving session...", flush=True)
+                        print(f"Login verified successful. Saving session...", flush=True)
                         context.storage_state(path=session_file)
                         print(f"Session saved to {session_file}", flush=True)
                     else:
-                        print("Login verification failed: Dashboard elements not found after wait.", flush=True)
-                        page.screenshot(path="login_verification_failed.png")
-                        with open("login_verification_failed.html", "w", encoding="utf-8") as f:
-                            f.write(page.content())
+                        print("Login verification failed: Terminal state not recognized.", flush=True)
+                        page.screenshot(path="login_error.png")
                         browser.close()
                         return {}, False, 0, False
 
                 except Exception as e:
                     print(f"Error during login verification: {e}", flush=True)
                     page.screenshot(path="login_error.png")
-                    with open("login_error.html", "w", encoding="utf-8") as f:
-                        f.write(page.content())
                     browser.close()
                     return {}, False, 0, False
-
             
             print(f"Navigating to Tag and Profile pages...", flush=True)
     
@@ -658,34 +551,37 @@ def scrape_uncle_k(email, password, last_known_count=0):
             for source in sources:
                 name = source["name"]
                 url = source["url"]
-                print(f"Navigating to {name}: {url}...", flush=True)
+                print(f"\n[SOURCE: {name}] Navigating to {url}...", flush=True)
                 try:
                     page.goto(url, timeout=60000)
                     handle_cookie_banner(page)
                     page.wait_for_selector(".atc-entry", timeout=30000)
                 except Exception as e:
-                    print(f"No entries found or timeout on {name}. Continuing...", flush=True)
+                    print(f"  [!] No entries found or timeout on {name}.", flush=True)
                     continue
     
                 all_entries = page.query_selector_all(".atc-entry")
-                print(f"Found {len(all_entries)} total entries on {name} page.", flush=True)
+                print(f"  [DEBUG] Total entries on page: {len(all_entries)}", flush=True)
                 
                 # Phase 1: Identify threads from today
-                for entry in all_entries:
+                for i, entry in enumerate(all_entries):
                     raw_ts = entry.get_attribute("posttime") or "0"
                     ts_int = int(raw_ts)
-                    
-                    # Filtering by timestamp instead of text date
-                    if ts_int < start_of_day_utc_ts:
-                        continue
-                    
                     author_el = entry.query_selector(".atc-username")
-                    author_name = author_el.inner_text().strip() if author_el else ""
+                    author_name = author_el.inner_text().strip() if author_el else "Unknown"
+                    
+                    # Detailed debug print for every entry
+                    print(f"  [ENTRY {i}] TS: {ts_int} ({datetime.fromtimestamp(ts_int, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}), Author: {author_name}, ThreadID: {entry.get_attribute('threadid')}", flush=True)
+
+                    if ts_int < start_of_day_utc_ts:
+                        print(f"    [FILTERED] Timestamp {ts_int} is before cutoff {start_of_day_utc_ts}.", flush=True)
+                        continue
                     
                     if "UncleK" in author_name:
                         thread_id = entry.get_attribute("threadid")
                         if thread_id:
                             uncle_k_thread_ids.add(thread_id)
+                            print(f"  [THREAD] Found UncleK thread: {thread_id}", flush=True)
     
                 # Phase 2: Collect data for recognized UncleK threads from today
                 for entry in all_entries:
@@ -698,24 +594,20 @@ def scrape_uncle_k(email, password, last_known_count=0):
                         if post_id and post_id in scraped_post_ids:
                             continue
                         
-                        # Only include today's posts (PST)
                         if ts_int < start_of_day_utc_ts:
                             continue
     
-                        author_el = entry.query_selector(".atc-username")
-                        content_el = entry.query_selector(".atc-entrytext")
-                        
                         if author_el and content_el:
                             current_post_count += 1
                             if post_id:
                                 scraped_post_ids.add(post_id)
                                 
-                                # Use already available ts_int/raw_ts
-                                pst_dt = datetime.utcfromtimestamp(ts_int) - timedelta(hours=8)
+                                # Accurate PST conversion
+                                pst_dt = datetime.fromtimestamp(ts_int, tz=timezone.utc) - timedelta(hours=8)
                                 pst_time_str = pst_dt.strftime("%I:%M:%S %p")
                                 
                                 author_name = author_el.inner_text().strip()
-                                print(f"  [FOUND] {pst_time_str} - {author_name}: {content_el.inner_text().strip()[:50]}...", flush=True)
+                                print(f"  [FOUND POST] {pst_time_str} - {author_name}: {content_el.inner_text().strip()[:60]}...", flush=True)
 
                                 post_data = {
                                     "author": author_name,
@@ -730,7 +622,6 @@ def scrape_uncle_k(email, password, last_known_count=0):
             # Check for new posts
             has_new = current_post_count > last_known_count
             
-            # Check for HPT
             if has_new:
                 for thread_id in threads:
                     for p in threads[thread_id]:
@@ -740,7 +631,10 @@ def scrape_uncle_k(email, password, last_known_count=0):
             for thread_id in threads:
                 threads[thread_id].sort(key=lambda x: int(x['timestamp']))
     
-            print(f"Found {len(uncle_k_thread_ids)} UncleK threads and {current_post_count} posts in total.", flush=True)
+            print(f"\n--- SCRAPE SUMMARY ---", flush=True)
+            print(f"Total UncleK threads tracked: {len(uncle_k_thread_ids)}", flush=True)
+            print(f"Total unique posts collected: {current_post_count}", flush=True)
+            print(f"----------------------", flush=True)
             browser.close()
             
     except Exception as e:
